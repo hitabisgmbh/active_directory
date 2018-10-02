@@ -50,7 +50,7 @@ module ActiveDirectory
     def authenticate(password)
       return false if password.to_s.empty?
 
-      auth_ldap = @@ldap.dup.bind_as(
+      auth_ldap = @ldap.dup.bind_as(
         filter: "(sAMAccountName=#{sAMAccountName})",
         password: password
       )
@@ -65,7 +65,7 @@ module ActiveDirectory
     #
     def manager
       return nil if @entry.manager.nil?
-      User.find_by_distinguishedName(@entry.manager.to_s)
+      find_by_distinguishedName(@entry.manager.to_s)
     end
 
     #
@@ -75,7 +75,7 @@ module ActiveDirectory
     # called Marketting, this method would only return the Sales group.
     #
     def groups
-      @groups ||= Group.find(:all, distinguishedname: @entry[:memberOf])
+      @groups ||= as_group.find(:all, distinguishedname: @entry[:memberOf])
     end
 
     #
@@ -84,7 +84,7 @@ module ActiveDirectory
     #
     def direct_reports
       return [] if @entry.directReports.nil?
-      @direct_reports ||= User.find(:all, @entry.directReports)
+      @direct_reports ||= find(:all, @entry.directReports)
     end
 
     #
@@ -155,7 +155,7 @@ module ActiveDirectory
     # time they successfully log into the domain.
     #
     def change_password(new_password, force_change = false)
-      settings = @@settings.dup.merge(
+      settings = @settings.dup.merge(
         port: 636,
         encryption: { method: :simple_tls }
       )
@@ -176,7 +176,7 @@ module ActiveDirectory
     # Unlocks this account.
     #
     def unlock!
-      @@ldap.replace_attribute(distinguishedName, :lockoutTime, ['0'])
+      @ldap.replace_attribute(distinguishedName, :lockoutTime, ['0'])
     end
   end
 end

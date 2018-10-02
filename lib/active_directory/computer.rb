@@ -24,7 +24,7 @@ module ActiveDirectory
       Net::LDAP::Filter.eq(:objectClass, 'computer')
     end
 
-    def self.required_attributes # :nodoc:
+    def required_attributes # :nodoc:
       { objectClass: %w[top person organizationalPerson user computer] }
     end
 

@@ -9,3 +9,11 @@ Version 1.6.2 (2015-06-04)
 .Additions and changes
 - Add from_dn method in base to access a single entry
 - Add an experimental security group creation
+
+Version 1.6.3 (2018-09-02)
+--------------------------
+.Additions and changes
+- Extends the existing Gem by a non-global connection management,
+  so it's possible to create multiple independent connections to the backend.
+- All features are the same, but handled a little bit different.
+- Fixed a attribute resolve bug in the Base Class

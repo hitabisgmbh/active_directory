@@ -48,10 +48,20 @@ module ActiveDirectory
     #
     NIL_FILTER = Net::LDAP::Filter.pres('cn')
 
-    @@ldap = nil
-    @@ldap_connected = false
-    @@caching = false
-    @@cache = {}
+    def as_user
+      @user ||= becomes(ActiveDirectory::User)
+      @user
+    end
+
+    def as_group
+      @group ||= becomes(ActiveDirectory::Group)
+      @group
+    end
+
+    def as_computer
+      @computer ||= becomes(ActiveDirectory::Computer)
+      @computer
+    end
 
     #
     # Configures the connection for the Ruby/ActiveDirectory library.
@@ -81,71 +91,71 @@ module ActiveDirectory
     # For more advanced options, refer to the Net::LDAP.new
     # documentation.
     #
-    def self.setup(settings)
-      @@settings = settings
-      @@ldap_connected = false
-      @@ldap = Net::LDAP.new(settings)
+    def setup(settings)
+      @settings = settings
+      @ldap_connected = false
+      @ldap = Net::LDAP.new(settings)
     end
 
-    def self.error
-      "#{@@ldap.get_operation_result.code}: #{@@ldap.get_operation_result.message}"
+    def error
+      "#{@ldap.get_operation_result.code}: #{@ldap.get_operation_result.message}"
     end
 
     ##
     # Return the last errorcode that ldap generated
-    def self.error_code
-      @@ldap.get_operation_result.code
+    def error_code
+      @ldap.get_operation_result.code
     end
 
     ##
     # Check to see if the last query produced an error
     # Note: Invalid username/password combinations will not
     # produce errors
-    def self.error?
-      @@ldap.nil? ? false : @@ldap.get_operation_result.code != 0
+    def error?
+      @ldap.nil? ? false : @ldap.get_operation_result.code != 0
     end
 
     ##
     # Check to see if we are connected to the LDAP server
     # This method will try to connect, if we haven't already
-    def self.connected?
-      @@ldap_connected ||= @@ldap.bind unless @@ldap.nil?
-      @@ldap_connected
+    def connected?
+      @ldap_connected ||= @ldap.bind unless @ldap.nil?
+      @ldap_connected
     rescue Net::LDAP::LdapError
       false
     end
 
     ##
     # Check to see if result caching is enabled
-    def self.cache?
-      @@caching
+    def cache?
+      @caching
     end
 
     ##
     # Clears the cache
-    def self.clear_cache
-      @@cache = {}
+    def clear_cache
+      @cache = {}
     end
 
     ##
     # Enable caching for queries against the DN only
     # This is to prevent membership lookups from hitting the
     # AD unnecessarilly
-    def self.enable_cache
-      @@caching = true
+    def enable_cache
+      @caching = true
     end
 
     ##
     # Disable caching
-    def self.disable_cache
-      @@caching = false
+    def disable_cache
+      @caching = false
     end
 
     def self.filter # :nodoc:
       NIL_FILTER
     end
 
-    def self.required_attributes # :nodoc:
+    def required_attributes # :nodoc:
       {}
     end
 
@@ -178,9 +188,9 @@ module ActiveDirectory
     # so the above query would also return true if a group named
     # 'OldGroup_' exists.
     #
-    def self.exists?(filter_as_hash)
-      criteria = make_filter_from_hash(filter_as_hash) & filter
-      @@ldap.search(filter: criteria).!empty?
+    def exists?(filter_as_hash)
+      criteria = make_filter_from_hash(filter_as_hash) & self.class.filter
+      @ldap.search(filter: criteria).!empty?
     end
 
     #
@@ -195,7 +205,7 @@ module ActiveDirectory
     # Makes a single filter from a given key and value
     # It will try to encode an array if there is a process for it
     # Otherwise, it will treat it as an or condition
-    def self.make_filter(key, value)
+    def make_filter(key, value)
       # Join arrays using OR condition
       if value.is_a? Array
         filter = ~NIL_FILTER
@@ -210,7 +220,7 @@ module ActiveDirectory
       filter
     end
 
-    def self.make_filter_from_hash(hash) # :nodoc:
+    def make_filter_from_hash(hash) # :nodoc:
       return NIL_FILTER if hash.nil? || hash.empty?
 
       filter = NIL_FILTER
@@ -222,12 +232,12 @@ module ActiveDirectory
       filter
     end
 
-    def self.from_dn(dn)
-      ldap_result = @@ldap.search(filter: '(objectClass=*)', base: dn)
+    def from_dn(dn)
+      ldap_result = @ldap.search(filter: '(objectClass=*)', base: dn)
       return nil unless ldap_result
 
-      ad_obj = new(ldap_result[0])
-      @@cache[ad_obj.dn] = ad_obj unless ad_obj.instance_of? Base
+      ad_obj = entry_new(ldap_result[0])
+      @cache[ad_obj.dn] = ad_obj unless ad_obj.instance_of? Base
       ad_obj
     end
 
@@ -256,7 +266,7 @@ module ActiveDirectory
     # (a User or a Group) back, or nil, if there were no entries
     # matching your filter.
     #
-    def self.find(*args)
+    def find(*args)
       return false unless connected?
 
       options = {
@@ -268,13 +278,13 @@ module ActiveDirectory
       cached_results = find_cached_results(args[1])
       return cached_results if cached_results || cached_results.nil?
 
-      options[:in] = [options[:in].to_s, @@settings[:base]].delete_if(&:empty?).join(',')
+      options[:in] = [options[:in].to_s, @settings[:base]].delete_if(&:empty?).join(',')
 
       if options[:filter].is_a? Hash
         options[:filter] = make_filter_from_hash(options[:filter])
       end
 
-      options[:filter] = options[:filter] & filter unless filter == NIL_FILTER
+      options[:filter] = options[:filter] & self.class.filter unless self.class.filter == NIL_FILTER
 
       if args.first == :all
         find_all(options)
@@ -290,7 +300,7 @@ module ActiveDirectory
     # Searches the cache and returns the result
     # Returns false on failure, nil on wrong object type
     #
-    def self.find_cached_results(filters)
+    def find_cached_results(filters)
       return false unless cache?
 
       # Check to see if we're only looking for :distinguishedname
@@ -303,7 +313,7 @@ module ActiveDirectory
         result = []
 
         dns.each do |dn|
-          entry = @@cache[dn]
+          entry = @cache[dn]
 
           # If the object isn't in the cache just run the query
           return false if entry.nil?
@@ -314,35 +324,36 @@ module ActiveDirectory
 
         return result
       else
-        return false unless @@cache.key? dns
-        return @@cache[dns] if @@cache[dns].is_a? self
+        return false unless @cache.key? dns
+        return @cache[dns] if @cache[dns].is_a? self
       end
     end
 
-    def self.find_all(options)
+    def find_all(options)
       results = []
-      ldap_objs = @@ldap.search(filter: options[:filter], base: options[:in]) || []
+      ldap_objs = @ldap.search(filter: options[:filter], base: options[:in]) || []
 
       ldap_objs.each do |entry|
-        ad_obj = new(entry)
-        @@cache[entry.dn] = ad_obj unless ad_obj.instance_of? Base
+        ad_obj = entry_new(entry)
+        @cache[entry.dn] = ad_obj unless ad_obj.instance_of? Base
         results << ad_obj
       end
 
       results
     end
 
-    def self.find_first(options)
-      ldap_result = @@ldap.search(filter: options[:filter], base: options[:in])
+    def find_first(options)
+      ldap_result = @ldap.search(filter: options[:filter], base: options[:in])
       return nil if ldap_result.empty?
 
-      ad_obj = new(ldap_result[0])
-      @@cache[ad_obj.dn] = ad_obj unless ad_obj.instance_of? Base
+      ad_obj = entry_new(ldap_result[0])
+      @cache[ad_obj.dn] = ad_obj unless ad_obj.instance_of? Base
       ad_obj
     end
 
-    def self.method_missing(name, *args) # :nodoc:
+    def method_missing(name, *args) # :nodoc:
       name = name.to_s
+      
       if name[0, 5] == 'find_'
         find_spec, attribute_spec = parse_finder_spec(name)
         raise ArgumentError, "find: Wrong number of arguments (#{args.size} for #{attribute_spec.size})" unless args.size == attribute_spec.size
@@ -354,7 +365,7 @@ module ActiveDirectory
       end
     end
 
-    def self.parse_finder_spec(method_name) # :nodoc:
+    def parse_finder_spec(method_name) # :nodoc:
       # FIXME: This is a prime candidate for a
       # first-class object, FinderSpec
 
@@ -385,7 +396,7 @@ module ActiveDirectory
     def reload
       return false if new_record?
 
-      @entry = @@ldap.search(filter: Net::LDAP::Filter.eq('distinguishedName', distinguishedName))[0]
+      @entry = @ldap.search(filter: Net::LDAP::Filter.eq('distinguishedName', distinguishedName))[0]
       !@entry.nil?
     end
 
@@ -433,17 +444,17 @@ module ActiveDirectory
       end
 
       unless operations.empty?
-        @@ldap.modify(
+        @ldap.modify(
           dn: distinguishedName,
           operations: operations
         )
       end
       if rename
-        @@ldap.modify(
+        @ldap.modify(
           dn: distinguishedName,
           operations: [[(name.nil? ? :add : :replace), 'samaccountname', attributes_to_update[:cn]]]
         )
-        @@ldap.rename(olddn: distinguishedName, newrdn: 'cn=' + attributes_to_update[:cn], delete_attributes: true)
+        @ldap.rename(olddn: distinguishedName, newrdn: 'cn=' + attributes_to_update[:cn], delete_attributes: true)
       end
       reload
     end
@@ -458,13 +469,13 @@ module ActiveDirectory
     # attributes is a symbol-keyed hash of attribute_name => value
     # pairs.
     #
-    def self.create(dn, attributes)
+    def create(dn, attributes)
       return nil if dn.nil? || attributes.nil?
       begin
         attributes.merge!(required_attributes)
-        if @@ldap.add(dn: dn.to_s, attributes: attributes)
-          ldap_obj = @@ldap.search(base: dn.to_s)
-          return new(ldap_obj[0])
+        if @ldap.add(dn: dn.to_s, attributes: attributes)
+          ldap_obj = @ldap.search(base: dn.to_s)
+          return entry_new(ldap_obj[0])
         else
           return nil
         end
@@ -480,7 +491,7 @@ module ActiveDirectory
     def destroy
       return false if new_record?
 
-      if @@ldap.delete(dn: distinguishedName)
+      if @ldap.delete(dn: distinguishedName)
         @entry = nil
         @attributes = {}
         return true
@@ -513,7 +524,7 @@ module ActiveDirectory
       return false if new_record?
       puts "Moving #{distinguishedName} to RDN: #{new_rdn}"
 
-      settings = @@settings.dup
+      settings = @settings.dup
       settings[:port] = 636
       settings[:encryption] = { method: :simple_tls }
 
@@ -526,13 +537,31 @@ module ActiveDirectory
       )
         return true
       else
-        puts Base.error
+        puts self.error
         return false
       end
     end
 
+    def entry_new(entry)
+      new_instance = self.class.new(entry)
+      new_instance.instance_variable_set(:@ldap, @ldap)
+      new_instance.instance_variable_set(:@ldap_connected, @ldap_connected)
+      new_instance.instance_variable_set(:@caching, @caching)
+      new_instance.instance_variable_set(:@cache, @cache)
+      new_instance.instance_variable_set(:@types, @types)
+      new_instance.instance_variable_set(:@settings, @settings)
+
+      new_instance
+    end
+
     # FIXME: Need to document the Base::new
     def initialize(attributes = {}) # :nodoc:
+      @ldap = nil
+      @ldap_connected = false
+      @caching = false
+      @cache = {}
+      @types = {}
+
       if attributes.is_a? Net::LDAP::Entry
         @entry = attributes
         @attributes = {}
@@ -546,23 +575,21 @@ module ActiveDirectory
     # Pull the class we're in
     # This isn't quite right, as extending the object does funny things to how we
     # lookup objects
-    def self.class_name
-      @klass ||= (name.include?('::') ? name[/.*::(.*)/, 1] : name)
+    def class_name
+      @klass ||= (self.class.name.include?('::') ? self.class.name[/.*::(.*)/, 1] : self.class.name)
     end
 
     ##
     # Grabs the field type depending on the class it is called from
     # Takes the field name as a parameter
-    def self.get_field_type(name)
+    def get_field_type(name)
       # Extract class name
       throw 'Invalid field name' if name.nil?
       type = ::ActiveDirectory.special_fields[class_name.to_sym][name.to_s.downcase.to_sym]
       type.to_s unless type.nil?
     end
 
-    @types = {}
-
-    def self.decode_field(name, value) # :nodoc:
+    def decode_field(name, value) # :nodoc:
       type = get_field_type name
       if !type.nil? && ::ActiveDirectory::FieldType.const_defined?(type)
         return ::ActiveDirectory::FieldType.const_get(type).decode(value)
@@ -570,12 +597,25 @@ module ActiveDirectory
       value
     end
 
-    def self.encode_field(name, value) # :nodoc:
+    def encode_field(name, value) # :nodoc:
       type = get_field_type name
       if !type.nil? && ::ActiveDirectory::FieldType.const_defined?(type)
         return ::ActiveDirectory::FieldType.const_get(type).encode(value)
       end
       value
+    end
+
+    def becomes(klass)
+      became = klass.new
+      became.instance_variable_set(:@attributes, @attributes)
+      became.instance_variable_set(:@ldap, @ldap)
+      became.instance_variable_set(:@ldap_connected, @ldap_connected)
+      became.instance_variable_set(:@caching, @caching)
+      became.instance_variable_set(:@cache, @cache)
+      became.instance_variable_set(:@settings, @settings)
+      became.instance_variable_set(:@entry, @entry)
+      became.instance_variable_set(:@types, @types)
+      became
     end
 
     def valid_attribute?(name)
@@ -585,19 +625,19 @@ module ActiveDirectory
     def get_attr(name)
       name = name.to_s.downcase
 
-      return self.class.decode_field(name, @attributes[name.to_sym]) if @attributes.key?(name.to_sym)
+      return decode_field(name, @attributes[name.to_sym]) if @attributes.key?(name.to_sym)
 
       if @entry.attribute_names.include? name.to_sym
         value = @entry[name.to_sym]
         value = value.first if value.is_a?(Array) && value.size == 1
         value = value.to_s if value.nil? || value.size == 1
         value = nil.to_s if value.empty?
-        return self.class.decode_field(name, value)
+        return decode_field(name, value)
       end
     end
 
     def set_attr(name, value)
-      @attributes[name.to_sym] = self.class.encode_field(name, value)
+      @attributes[name.to_sym] = encode_field(name, value)
     end
 
     ##
@@ -635,7 +675,10 @@ module ActiveDirectory
 
       return set_attr(name.chop, args) if name[-1] == '='
 
-      if valid_attribute? name.to_sym
+      # name = name.to_sym
+      name = name.to_sym
+
+      if valid_attribute? name
         get_attr(name)
       else
         super

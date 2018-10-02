@@ -18,7 +18,7 @@
 #
 #++ license
 
-require 'active_directory/attributes'
+require "#{Rails.root}/lib/active_directory/attributes"
 
 module ActiveDirectory
   class Group < Base
@@ -50,7 +50,7 @@ module ActiveDirectory
       user.member_of?(self)
     end
 
-    def self.create_security_group(ou, name, type)
+    def create_security_group(ou, name, type)
       type_mask = GroupType::SECURITY_ENABLED
       case type
       when :local
@@ -69,7 +69,7 @@ module ActiveDirectory
         objectCategory: 'CN=Group,CN=Schema,CN=Configuration,DC=afssa,DC=fr',
         groupType: type_mask.to_s
       }
-      @@ldap.add(dn: dn, attributes: attributes)
+      @ldap.add(dn: dn, attributes: attributes)
       from_dn(dn)
     end
 
@@ -80,7 +80,7 @@ module ActiveDirectory
     #
     def add(new_member)
       return false unless new_member.is_a?(User) || new_member.is_a?(Group)
-      if @@ldap.modify(dn: distinguishedName, operations: [
+      if @ldap.modify(dn: distinguishedName, operations: [
                          [:add, :member, new_member.distinguishedName]
                        ])
         return true
@@ -96,7 +96,7 @@ module ActiveDirectory
     #
     def remove(member)
       return false unless member.is_a?(User) || member.is_a?(Group)
-      if @@ldap.modify(dn: distinguishedName, operations: [
+      if @ldap.modify(dn: distinguishedName, operations: [
                          [:delete, :member, member.distinguishedName]
                        ])
         return true
@@ -121,7 +121,7 @@ module ActiveDirectory
     # belong to this Group, or any of its subgroups, are returned.
     #
     def member_users(recursive = false)
-      @member_users = User.find(:all, distinguishedname: @entry[:member]).delete_if(&:nil?)
+      @member_users = as_user.find(:all, distinguishedname: @entry[:member]).delete_if(&:nil?)
       if recursive
         member_groups.each do |group|
           @member_users.concat(group.member_users(true))
@@ -140,7 +140,7 @@ module ActiveDirectory
     # belong to this Group, or any of its subgroups, are returned.
     #
     def member_groups(recursive = false)
-      @member_groups ||= Group.find(:all, distinguishedname: @entry[:member]).delete_if(&:nil?)
+      @member_groups ||= find(:all, distinguishedname: @entry[:member]).delete_if(&:nil?)
       if recursive
         member_groups.each do |group|
           @member_groups.concat(group.member_groups(true))
@@ -154,7 +154,7 @@ module ActiveDirectory
     #
     def groups
       return [] if memberOf.nil?
-      @groups ||= Group.find(:all, distinguishedname: @entry.memberOf).delete_if(&:nil?)
+      @groups ||= find(:all, distinguishedname: @entry.memberOf).delete_if(&:nil?)
     end
   end
 end
