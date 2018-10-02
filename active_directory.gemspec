@@ -11,9 +11,9 @@ Gem::Specification.new do |s|
   and modifying an Active Directory data store.
   This is a fork of the activedirectory gem.
   DESC
-  s.authors = ['Simon Arnaud', 'Adam T Kerr', 'Keith Pitty', 'James Hunt']
-  s.email = 'active_directory.ruby.maz@kabalo.org'
-  s.homepage = 'http://github.com/mazwak/active_directory'
+  s.authors = ['Simon Arnaud', 'Adam T Kerr', 'Keith Pitty', 'James Hunt', 'Kay Makowsky']
+  s.email = 'k.makowsky@pikot.de'
+  s.homepage = 'https://github.com/KMakowsky/active_directory'
 
   s.files = Dir['lib/**/*', 'README*', 'LICENSE*', 'VERSION*']
   s.extra_rdoc_files = [
