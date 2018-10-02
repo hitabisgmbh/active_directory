@@ -1,6 +1,6 @@
 = Active Directory
 
-Based on https://github.com/KMakowsky/active_directory
+Based on https://github.com/Mazwak/active_directory
 
 Extends the existing Gem by a non-global Connection Management.
 
