@@ -18,7 +18,7 @@
 #
 #++ license
 
-require "#{Rails.root}/lib/active_directory/attributes"
+require 'active_directory/attributes'
 
 module ActiveDirectory
   class Group < Base
