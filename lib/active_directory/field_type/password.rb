@@ -25,7 +25,7 @@ module ActiveDirectory
       # Encodes an unencrypted password into an encrypted password
       # that the Active Directory server will understand.
       #
-      def self.encode(password)
+      def self.encode(ldap_connection, password)
         ("\"#{password}\"".split(//).collect { |c| "#{c}\000" }).join
       end
 
@@ -33,7 +33,7 @@ module ActiveDirectory
       # Always returns nil, since you can't decrypt the User's encrypted
       # password.
       #
-      def self.decode(_hashed)
+      def self.decode(ldap_connection, _hashed)
         nil
       end
     end

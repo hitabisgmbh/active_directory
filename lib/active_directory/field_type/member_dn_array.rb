@@ -24,17 +24,17 @@ module ActiveDirectory
       #
       # Encodes an array of objects into a list of dns
       #
-      def self.encode(obj_array)
+      def self.encode(ldap_connection, obj_array)
         obj_array.collect(&:dn)
       end
 
       #
       # Decodes a list of DNs into the objects that they are
       #
-      def self.decode(dn_array)
+      def self.decode(ldap_connection, dn_array)
         # Ensures that the objects are cast correctly
-        users = User.find(:all, distinguishedname: dn_array)
-        groups = Group.find(:all, distinguishedname: dn_array)
+        users = ldap_connection.as_user.find(:all, distinguishedname: dn_array)
+        groups = ldap_connection.as_group.find(:all, distinguishedname: dn_array)
 
         arr = []
         arr << users unless users.nil?

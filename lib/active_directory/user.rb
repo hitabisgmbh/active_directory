@@ -165,7 +165,7 @@ module ActiveDirectory
         dn: distinguishedName,
         operations: [
           [:replace, :lockoutTime, ['0']],
-          [:replace, :unicodePwd, [FieldType::Password.encode(new_password)]],
+          [:replace, :unicodePwd, [FieldType::Password.encode(self, new_password)]],
           [:replace, :userAccountControl, [UAC_NORMAL_ACCOUNT.to_s]],
           [:replace, :pwdLastSet, [(force_change ? '0' : '-1')]]
         ]

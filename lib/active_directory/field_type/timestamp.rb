@@ -29,7 +29,7 @@ module ActiveDirectory
       # 1, 1970) into a timestamp that the Active Directory server can
       # understand (number of 100 nanosecond time units since January 1, 1600)
       #
-      def self.encode(local_time)
+      def self.encode(ldap_connection, local_time)
         (local_time.to_i + AD_OFFSET) * AD_DIVISOR
       end
 
@@ -37,7 +37,7 @@ module ActiveDirectory
       # Decodes an Active Directory timestamp (the number of 100 nanosecond time
       # units since January 1, 1600) into a Ruby Time object.
       #
-      def self.decode(remote_time)
+      def self.decode(ldap_connection, remote_time)
         Time.at((remote_time.to_i / AD_DIVISOR) - AD_OFFSET)
       end
     end

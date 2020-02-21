@@ -24,16 +24,16 @@ module ActiveDirectory
       #
       # Encodes an array of objects into a list of dns
       #
-      def self.encode(obj_array)
+      def self.encode(ldap_connection, obj_array)
         obj_array.collect(&:dn)
       end
 
       #
       # Decodes a list of DNs into the objects that they are
       #
-      def self.decode(dn_array)
+      def self.decode(ldap_connection, dn_array)
         # How to do user or group?
-        Base.find(:all, distinguishedname: dn_array)
+        ldap_connection.find(:all, distinguishedname: dn_array)
       end
     end
   end

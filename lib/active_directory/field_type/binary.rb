@@ -24,14 +24,14 @@ module ActiveDirectory
       #
       # Encodes a hex string into a GUID
       #
-      def self.encode(hex_string)
+      def self.encode(ldap_connection, hex_string)
         [hex_string].pack('H*')
       end
 
       #
       # Decodes a binary GUID as a hex string
       #
-      def self.decode(guid)
+      def self.decode(ldap_connection, guid)
         guid.unpack('H*').first.to_s
       end
     end
