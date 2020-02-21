@@ -622,17 +622,27 @@ module ActiveDirectory
       @attributes.key?(name) || @entry.attribute_names.include?(name)
     end
 
-    def get_attr(name)
+    def get_attr(name, decode = true)
       name = name.to_s.downcase
 
-      return decode_field(name, @attributes[name.to_sym]) if @attributes.key?(name.to_sym)
+      if @attributes.key?(name.to_sym)
+        if decode
+          return decode_field(name, @attributes[name.to_sym])
+        else
+          return @attributes[name.to_sym]
+        end
+      end
 
       if @entry.attribute_names.include? name.to_sym
         value = @entry[name.to_sym]
         value = value.first if value.is_a?(Array) && value.size == 1
         value = value.to_s if value.nil? || value.size == 1
         value = nil.to_s if value.empty?
-        return decode_field(name, value)
+        if decode
+          return decode_field(name, value)
+        else
+          return value
+        end
       end
     end
 
